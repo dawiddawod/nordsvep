@@ -32,9 +32,10 @@ export function Tray({ jobs, open, aiming, onToggle, ref }: TrayProps) {
       aria-expanded={open}
       aria-label={`Your deck, ${jobs.length} saved`}
       animate={{ scale: aiming ? 1.03 : 1 }}
-      className="relative z-40 h-[92px] w-[calc(100%-32px)] max-w-[369.643px] shrink-0"
+      // The tray scales as one piece: every measurement below is in Figma units (--u), where the tray is 369.643 wide.
+      className="@container relative z-40 aspect-[369.643/92] w-[calc(100%-32px)] shrink-0 [--u:calc(100cqw/369.643)]"
     >
-      <span className="absolute inset-0 overflow-clip rounded-[32.857px] bg-tray">
+      <span className="absolute inset-0 overflow-clip rounded-[calc(var(--u)*32.857)] bg-tray">
         <Image
           src="/figma/tray-recess.svg"
           alt=""
@@ -53,25 +54,36 @@ export function Tray({ jobs, open, aiming, onToggle, ref }: TrayProps) {
         priority
         className="pointer-events-none absolute inset-0 size-full"
       />
-      <span className="absolute top-[8.21px] left-1/2 h-[36.143px] w-[31.214px] -translate-x-1/2 rounded-[8.214px] bg-tray-key">
-        <Image src="/figma/deck-icon.svg" alt="" width={16.9214} height={20.7821} className="absolute top-[7.15px] left-[7.15px]" />
+      <span className="absolute top-[calc(var(--u)*8.21)] left-1/2 h-[calc(var(--u)*36.143)] w-[calc(var(--u)*31.214)] -translate-x-1/2 rounded-[calc(var(--u)*8.214)] bg-tray-key">
+        <Image
+          src="/figma/deck-icon.svg"
+          alt=""
+          width={16.9214}
+          height={20.7821}
+          className="absolute top-[calc(var(--u)*7.15)] left-[calc(var(--u)*7.15)] w-[calc(var(--u)*16.9214)]"
+        />
       </span>
-      <span className="absolute top-[44.36px] left-1/2 w-[307.214px] -translate-x-1/2 text-center text-[14px] leading-[1.1] text-tray-text">
+      <span className="absolute top-[calc(var(--u)*44.36)] left-1/2 w-[calc(var(--u)*307.214)] -translate-x-1/2 text-center text-[calc(var(--u)*14)] leading-[1.1] text-tray-text">
         {label}
       </span>
     </motion.button>
   );
 }
 
-// Space above the tray where tucked cards stick out.
+// Space above the tray where tucked cards stick out, in tray units like everything else in the tray.
 const POCKET_HEADROOM = 24;
+const RECESS_HEIGHT = 64.0714;
+const POCKET_CARD_HEIGHT = 90;
+const u = (n: number) => `calc(var(--u) * ${n})`;
+// Motion can't animate calc(); offsets are a share of the card's own height, which scales with the tray.
+const cardOffset = (n: number) => `${(n / POCKET_CARD_HEIGHT) * 100}%`;
 
 // Saved cards tucked into the tray. The mask is the area above the tray plus the recess shape itself,
 // so cards show over the dark recess but disappear behind the light grey front of the tray.
 const pocketMask = {
   maskImage: "linear-gradient(#000, #000), url(/figma/tray-recess.svg)",
-  maskSize: `100% ${POCKET_HEADROOM}px, 100% 64.0714px`,
-  maskPosition: `0 0, 0 ${POCKET_HEADROOM}px`,
+  maskSize: `100% ${u(POCKET_HEADROOM)}, 100% ${u(RECESS_HEIGHT)}`,
+  maskPosition: `0 0, 0 ${u(POCKET_HEADROOM)}`,
   maskRepeat: "no-repeat",
 };
 
@@ -79,7 +91,7 @@ function Pocket({ jobs }: { jobs: Card[] }) {
   return (
     <span
       className="pointer-events-none absolute inset-x-0"
-      style={{ ...pocketMask, top: -POCKET_HEADROOM, height: POCKET_HEADROOM + 64.0714 }}
+      style={{ ...pocketMask, top: u(-POCKET_HEADROOM), height: u(POCKET_HEADROOM + RECESS_HEIGHT) }}
     >
       <AnimatePresence>
         {jobs.map((job, i) => (
@@ -87,12 +99,12 @@ function Pocket({ jobs }: { jobs: Card[] }) {
             key={job.id}
             style={{ ...toneStyle(job.tone), zIndex: POCKET_DEPTH - i }}
             // Newest card sits lowest and in front, just inside the tray; older ones step up behind it.
-            initial={{ y: -90 }}
-            animate={{ y: POCKET_HEADROOM + 10 - i * POCKET_STEP }}
-            exit={{ y: -90 }}
+            initial={{ y: "-100%" }}
+            animate={{ y: cardOffset(POCKET_HEADROOM + 10 - i * POCKET_STEP) }}
+            exit={{ y: "-100%" }}
             transition={{ type: "spring", stiffness: 320, damping: 28, delay: i === 0 ? 0.3 : 0 }}
             // Flat colour with a hairline edge, like laminated cards, instead of a drop shadow.
-            className="absolute inset-x-0 top-0 h-[90px] rounded-t-[32.857px] bg-(--tone-from) shadow-[inset_0_1px_0_rgba(255,255,255,0.22),0_-1px_0_rgba(0,0,0,0.12)]"
+            className="absolute inset-x-0 top-0 h-[calc(var(--u)*90)] rounded-t-[calc(var(--u)*32.857)] bg-(--tone-from) shadow-[inset_0_1px_0_rgba(255,255,255,0.22),0_-1px_0_rgba(0,0,0,0.12)]"
           />
         ))}
       </AnimatePresence>
@@ -107,6 +119,12 @@ type WalletProps = {
   onRemove: (id: string) => void;
 };
 
+// The newest card sits at the bottom, by the tray; when the stack is taller than the screen, open scrolled to it.
+// Defined outside the component so React only calls it when the list mounts, not on every re-render.
+const scrollToNewest = (list: HTMLUListElement | null) => {
+  if (list) list.scrollTop = list.scrollHeight;
+};
+
 // Saved cards rise out of the tray and stack like cards in a wallet; tap one to fan it open.
 export function Wallet({ jobs, open, onClose, onRemove }: WalletProps) {
   const [selected, setSelected] = useState<string | null>(null);
@@ -117,7 +135,7 @@ export function Wallet({ jobs, open, onClose, onRemove }: WalletProps) {
     <AnimatePresence>
       {open && (
         <motion.div
-          className="absolute inset-0 z-30 flex flex-col justify-end bg-bg/90 px-5 pb-[115px] backdrop-blur-sm"
+          className="absolute -inset-x-5 inset-y-0 z-30 flex flex-col justify-end bg-bg/90 px-5 backdrop-blur-sm"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0, transition: { delay: 0.15 } }}
@@ -126,7 +144,7 @@ export function Wallet({ jobs, open, onClose, onRemove }: WalletProps) {
           {jobs.length === 0 ? (
             <p className="pb-6 text-center text-[15px] text-chip-text">Your deck is empty. Swipe a card down to save it.</p>
           ) : (
-            <ul className="flex max-h-full flex-col overflow-y-auto pt-16">
+            <ul ref={scrollToNewest} className="flex max-h-full flex-col overflow-y-auto pt-16">
               {stack.map((job, i) => {
                 const isOpen = selected === job.id;
                 const afterOpen = i > 0 && selected === stack[i - 1].id;

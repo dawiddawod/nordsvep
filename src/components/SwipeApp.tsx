@@ -175,7 +175,7 @@ export function SwipeApp({ fields }: { fields: Option[] }) {
   if (deck[1]) cards.push({ job: deck[1], slot: 1 });
 
   return (
-    <main className="relative mx-auto flex h-dvh w-full max-w-[402px] flex-col items-center gap-[10px] overflow-hidden pt-[15px] pb-[15px]">
+    <main className="relative mx-auto flex h-dvh w-full max-w-[440px] flex-col items-center gap-[10px] overflow-hidden pt-[max(15px,env(safe-area-inset-top))] pb-[max(15px,env(safe-area-inset-bottom))]">
       <header className="w-full pb-2">
         <h1 className="text-center text-[22px] leading-[1.1] font-bold text-title">NordSvep</h1>
         <nav className="mt-4 flex gap-2 overflow-x-auto px-4 [scrollbar-width:none]">
@@ -212,7 +212,7 @@ export function SwipeApp({ fields }: { fields: Option[] }) {
         )}
       </header>
 
-      <section ref={stage} className="relative w-[calc(100%-40px)] max-w-[362px] flex-1" aria-live="polite">
+      <section ref={stage} className="relative w-[calc(100%-40px)] flex-1" aria-live="polite">
         <AnimatePresence custom={exit}>
           {cards.map(({ job, slot }) => (
             <JobCard
@@ -229,9 +229,9 @@ export function SwipeApp({ fields }: { fields: Option[] }) {
         {deck.length === 0 && (
           <EmptyState status={status} onRetry={() => fetchMore(filters, true)} onReset={resetHistory} />
         )}
+        <Wallet jobs={saved} open={walletOpen} onClose={() => setWalletOpen(false)} onRemove={unsave} />
       </section>
 
-      <Wallet jobs={saved} open={walletOpen} onClose={() => setWalletOpen(false)} onRemove={unsave} />
       <Tray
         ref={tray}
         jobs={saved}
